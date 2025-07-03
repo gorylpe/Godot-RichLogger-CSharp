@@ -1,3 +1,4 @@
+#if TOOLS
 using Godot;
 
 [Tool]
@@ -47,3 +48,4 @@ public partial class LoggerToolbarPlugin : EditorPlugin
         _toolbar = null;
     }
 }
+#endif
