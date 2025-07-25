@@ -1,51 +1,57 @@
 #if TOOLS
+using System.Linq;
 using Godot;
 
 [Tool]
 public partial class LoggerToolbarPlugin : EditorPlugin
 {
-    private LoggerToolbar? _toolbar;
+	private LoggerToolbar? _toolbar;
 
-    public override void _EnterTree()
-    {
-        _toolbar = new LoggerToolbar();
+	public override void _EnterTree()
+	{
+		_toolbar = new LoggerToolbar();
 
-        var tempControl = new Control();
-        var tabButton = AddControlToBottomPanel(tempControl, "Temp");
+		var tempControl = new Control { Name = "Temp" };
+		var tabButton = AddControlToBottomPanel(tempControl, "Temp");
 
-        var tabContainer = tabButton.GetParent();
-        var panelContainer = tabContainer.GetParent();
+#if GODOT4_4_OR_GREATER
+		var hBoxParent = tabButton.GetParent().GetParent().GetParent();
+#elif GODOT4_3_OR_GREATER
+		var hBoxParent = tabButton.GetParent().GetParent();
+#else
+		GD.PrintErr($"[{nameof(LoggerToolbarPlugin)}] Unsupported Godot version!");
+		var hBoxParent = tabButton.GetParent().GetParent().GetParent();
+#endif
+		RemoveControlFromBottomPanel(tempControl);
+		tempControl.QueueFree();
 
-        Control? contentContainer = null;
-        for (var i = 0; i < panelContainer.GetChildCount(); i++)
-        {
-            var child = panelContainer.GetChild(i);
-            if (child == tabContainer || child is not Control control)
-                continue;
+		var editorToaster = hBoxParent.GetChildren().FirstOrDefault(x => x.Name.ToString().Contains("EditorToaster"));
+		if (editorToaster == null)
+		{
+			GD.PrintErr($"[{nameof(LoggerToolbarPlugin)}] Failed to find EditorToaster!");
+			return;
+		}
 
-            contentContainer = control;
-            break;
-        }
+		if (editorToaster.GetChild(0) is not VBoxContainer outputVBoxContainer)
+		{
+			GD.PrintErr($"[{nameof(LoggerToolbarPlugin)}] Failed to find output VBoxContainer!");
+			return;
+		}
 
-        RemoveControlFromBottomPanel(tempControl);
-        tempControl.QueueFree();
+		outputVBoxContainer.AddChild(_toolbar);
+		_toolbar.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+	}
 
-        var outputPanel = contentContainer!.GetChild(0) as VBoxContainer;
+	public override void _ExitTree()
+	{
+		if (_toolbar == null)
+			return;
 
-        outputPanel!.AddChild(_toolbar);
-        _toolbar.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-    }
+		var parent = _toolbar.GetParent() as VBoxContainer;
+		parent!.RemoveChild(_toolbar);
 
-    public override void _ExitTree()
-    {
-        if (_toolbar == null)
-            return;
-
-        var parent = _toolbar.GetParent() as VBoxContainer;
-        parent!.RemoveChild(_toolbar);
-
-        _toolbar.QueueFree();
-        _toolbar = null;
-    }
+		_toolbar.QueueFree();
+		_toolbar = null;
+	}
 }
 #endif
