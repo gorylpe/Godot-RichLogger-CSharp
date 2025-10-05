@@ -114,7 +114,7 @@ public static class Logger
             var lineNumber = callerFrame.GetFileLineNumber();
             var fileName = System.IO.Path.GetFileName(callerFrame.GetFileName() ?? "Unknown");
             
-            return $"Class: {className}, Method: {methodName}, File: {fileName}, Line: {lineNumber}";
+            return $"Class: {className}\u000CMethod: {methodName}\u000CFile: {fileName}\u000CLine: {lineNumber}";
         }
         
         return "Unknown caller";
