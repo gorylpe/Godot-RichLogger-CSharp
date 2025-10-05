@@ -3,10 +3,10 @@ using Godot;
 [Tool]
 public partial class LoggerToolbar : HBoxContainer
 {
-    private OptionButton _logLevelDropdown;
-    private CheckBox     _stackTraceToggle;
-    private SpinBox      _stackDepthSpinner;
-    private Button       _testLogButton;
+    private OptionButton _logLevelDropdown = null!;
+    private CheckBox _stackTraceToggle = null!;
+    private SpinBox _stackDepthSpinner = null!;
+    private Button _testLogButton = null!;
 
     private string _pluginSettingsPath = "user://logger_settings.cfg";
 
@@ -27,10 +27,10 @@ public partial class LoggerToolbar : HBoxContainer
         AddChild(label);
 
         _logLevelDropdown = new OptionButton();
-        _logLevelDropdown.AddItem("Error",   (int)LogLevel.Error);
+        _logLevelDropdown.AddItem("Error", (int)LogLevel.Error);
         _logLevelDropdown.AddItem("Warning", (int)LogLevel.Warning);
-        _logLevelDropdown.AddItem("Info",    (int)LogLevel.Info);
-        _logLevelDropdown.AddItem("Debug",   (int)LogLevel.Debug);
+        _logLevelDropdown.AddItem("Info", (int)LogLevel.Info);
+        _logLevelDropdown.AddItem("Debug", (int)LogLevel.Debug);
         _logLevelDropdown.AddItem("Verbose", (int)LogLevel.Verbose);
         _logLevelDropdown.CustomMinimumSize = new Vector2(100, 0);
         _logLevelDropdown.TooltipText = "Set the global logging level";
