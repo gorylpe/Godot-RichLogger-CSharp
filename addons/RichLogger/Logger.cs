@@ -59,7 +59,8 @@ public static class Logger
         var formattedMessage = args.Length > 0 ? string.Format(message, args) : message;
         var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
 
-        var coloredMessage = GetColoredMessage(level, timestamp, formattedMessage);
+        var callerInfo = GetCallerInfo();
+        var coloredMessage = GetColoredMessage(level, timestamp, formattedMessage, callerInfo);
 
         var stackTrace = "";
         if (IncludeStackTraces)
@@ -68,13 +69,16 @@ public static class Logger
         GD.PrintRich(coloredMessage + stackTrace);
     }
 
-    private static string GetColoredMessage(LogLevel level, string timestamp, string message)
+    private static string GetColoredMessage(LogLevel level, string timestamp, string message, string callerInfo)
     {
         var levelName = level.ToString().ToUpper();
         var levelColor = GetColorForLevel(level);
         var resetColor = "[color=#FFFFFF]";
 
-        return $"[color=#AAAAAA][{timestamp}][/color] {levelColor}[{levelName}]{resetColor} {message}";
+        var hoverTooltip = $"[hint={callerInfo}]";
+        var hoverClose = "[/hint]";
+
+        return $"[color=#AAAAAA][{timestamp}][/color] {levelColor}{hoverTooltip}[{levelName}]{hoverClose}{resetColor} {message}";
     }
 
     private static string GetColorForLevel(LogLevel level)
@@ -88,6 +92,32 @@ public static class Logger
             LogLevel.Verbose => "[color=#AAAAAA]",
             _                => "[color=#FFFFFF]"
         };
+    }
+
+    private static string GetCallerInfo()
+    {
+        var stackTrace = new StackTrace(true);
+        var stackFrames = stackTrace.GetFrames();
+        
+        // Skip the first few frames to get to the actual caller
+        // Frame 0: GetCallerInfo
+        // Frame 1: Log
+        // Frame 2: Error/Warning/Info/Debug/Verbose
+        // Frame 3: The actual calling method
+        var callerFrame = stackFrames.Length > 3 ? stackFrames[3] : null;
+        
+        if (callerFrame != null)
+        {
+            var method = callerFrame.GetMethod();
+            var className = method?.DeclaringType?.Name ?? "Unknown";
+            var methodName = method?.Name ?? "Unknown";
+            var lineNumber = callerFrame.GetFileLineNumber();
+            var fileName = System.IO.Path.GetFileName(callerFrame.GetFileName() ?? "Unknown");
+            
+            return $"Class: {className}, Method: {methodName}, File: {fileName}, Line: {lineNumber}";
+        }
+        
+        return "Unknown caller";
     }
 
     private static string GetStackTrace()
