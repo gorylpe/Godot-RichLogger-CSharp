@@ -70,21 +70,21 @@ public partial class LoggerToolbar : HBoxContainer
     private static void OnLogLevelSelected(long index)
     {
         Logger.CurrentLevel = (LogLevel)index;
-        Logger.InternalInfo("Log level changed to {0}", Logger.CurrentLevel);
+        Logger.InternalInfo($"Log level changed to {Logger.CurrentLevel}");
         Logger.SaveSettings();
     }
 
     private static void OnStackTraceToggled(bool toggled)
     {
         Logger.IncludeStackTraces = toggled;
-        Logger.InternalInfo("Stack traces {0}", toggled ? "enabled" : "disabled");
+        Logger.InternalInfo($"Stack traces {(toggled ? "enabled" : "disabled")}");
         Logger.SaveSettings();
     }
 
     private static void OnStackDepthChanged(double value)
     {
         Logger.StackTraceDepth = (int)value;
-        Logger.InternalInfo("Stack trace depth set to {0}", Logger.StackTraceDepth);
+        Logger.InternalInfo($"Stack trace depth set to {Logger.StackTraceDepth}");
         Logger.SaveSettings();
     }
 
@@ -96,10 +96,8 @@ public partial class LoggerToolbar : HBoxContainer
         Logger.Debug("Test DEBUG message");
         Logger.Verbose("Test VERBOSE message");
 
-        Logger.InternalInfo("Current settings: Level={0}, StackTraces={1}, Depth={2}",
-            Logger.CurrentLevel,
-            Logger.IncludeStackTraces,
-            Logger.StackTraceDepth);
+        Logger.InternalInfo($"Current settings: Level={Logger.CurrentLevel}, StackTraces={Logger.IncludeStackTraces}, Depth={Logger.StackTraceDepth}");
+        throw new ExceptionWithLoggerPrintErr("Test exception");
     }
 
     private void LoadSettingsFromLogger()
