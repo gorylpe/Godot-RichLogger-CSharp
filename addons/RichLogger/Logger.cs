@@ -16,9 +16,16 @@ public enum LogLevel
 
 public static class Logger
 {
-	private const string PluginSettingsPath = "user://logger_settings.cfg";
+	private const  string             PluginSettingsPath = "user://logger_settings.cfg";
+	private static FileSystemWatcher? _fileWatcher;
+	private static bool               _settingsChanged;
 
-	static Logger() => LoadSettings();
+	static Logger()
+	{
+		LoadSettings();
+		SaveSettings();
+		SetupFileWatcher();
+	}
 
 	public static LogLevel CurrentLevel       { get; set; } = LogLevel.Info;
 	public static bool     IncludeStackTraces { get; set; }
@@ -30,6 +37,7 @@ public static class Logger
 		[CallerLineNumber] int      lineNumber = 0,
 		int                         skipFrames = 0)
 	{
+		CheckAndReloadSettings();
 		if (CurrentLevel >= LogLevel.Error)
 			Log(LogLevel.Error, message, memberName, filePath, lineNumber, skipFrames);
 	}
@@ -40,6 +48,7 @@ public static class Logger
 		[CallerLineNumber] int        lineNumber = 0,
 		int                           skipFrames = 0)
 	{
+		CheckAndReloadSettings();
 		if (CurrentLevel >= LogLevel.Warning)
 			Log(LogLevel.Warning, message, memberName, filePath, lineNumber, skipFrames);
 	}
@@ -50,6 +59,7 @@ public static class Logger
 		[CallerLineNumber] int     lineNumber = 0,
 		int                        skipFrames = 0)
 	{
+		CheckAndReloadSettings();
 		if (CurrentLevel >= LogLevel.Info)
 			Log(LogLevel.Info, message, memberName, filePath, lineNumber, skipFrames);
 	}
@@ -60,6 +70,7 @@ public static class Logger
 		[CallerLineNumber] int      lineNumber = 0,
 		int                         skipFrames = 0)
 	{
+		CheckAndReloadSettings();
 		if (CurrentLevel >= LogLevel.Debug)
 			Log(LogLevel.Debug, message, memberName, filePath, lineNumber, skipFrames);
 	}
@@ -70,6 +81,7 @@ public static class Logger
 		[CallerLineNumber] int        lineNumber = 0,
 		int                           skipFrames = 0)
 	{
+		CheckAndReloadSettings();
 		if (CurrentLevel >= LogLevel.Verbose)
 			Log(LogLevel.Verbose, message, memberName, filePath, lineNumber, skipFrames);
 	}
@@ -155,9 +167,46 @@ public static class Logger
 	{
 		if (CurrentLevel < level) return;
 
-        var objString = obj is GodotObject gdObj && GodotObject.IsInstanceValid(gdObj) ? gdObj.ToString() : obj?.ToString() ?? "null";
+		var objString = obj is GodotObject gdObj && GodotObject.IsInstanceValid(gdObj) ? gdObj.ToString() : obj?.ToString() ?? "null";
 
 		Log(level, $"{context}: {objString}", memberName, filePath, lineNumber, skipFrames);
+	}
+
+	private static void SetupFileWatcher()
+	{
+		try
+		{
+			var filePath = ProjectSettings.GlobalizePath(PluginSettingsPath);
+			if (!File.Exists(filePath))
+				throw new FileNotFoundException($"Settings file not found: {filePath}");
+
+			var directory = Path.GetDirectoryName(filePath) ?? throw new InvalidOperationException("Invalid directory path");
+			var fileName = Path.GetFileName(filePath);
+
+			_fileWatcher = new FileSystemWatcher(directory)
+			{
+				Filter = fileName,
+				NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
+				IncludeSubdirectories = false,
+				EnableRaisingEvents = true
+			};
+			_fileWatcher.Changed += OnFileChanged;
+			_fileWatcher.Created += OnFileChanged;
+			_fileWatcher.Renamed += OnFileChanged;
+		}
+		catch (Exception ex)
+		{
+			InternalInfo($"File watcher setup failed: {ex.Message}");
+		}
+	}
+
+	private static void OnFileChanged(object sender, FileSystemEventArgs e) => _settingsChanged = true;
+
+	private static void CheckAndReloadSettings()
+	{
+		if (!_settingsChanged) return;
+		_settingsChanged = false;
+		LoadSettings();
 	}
 
 	public static void SaveSettings()
