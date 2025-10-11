@@ -119,7 +119,7 @@ public static class Logger
     {
         if (CurrentLevel < level) return;
 
-        var objString = GodotObject.IsInstanceValid(obj as GodotObject) ? (obj as GodotObject).ToString() : obj?.ToString() ?? "null";
+        var objString = obj is GodotObject gdObj && GodotObject.IsInstanceValid(gdObj) ? gdObj.ToString() : obj?.ToString() ?? "null";
 
         Log(level, $"{context}: {objString}");
     }
