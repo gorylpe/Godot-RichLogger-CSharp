@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 
 public enum LogLevel
 {
@@ -14,22 +15,56 @@ public enum LogLevel
 	Verbose = 4
 }
 
-public static class Logger
+public static partial class Logger
 {
-	private const  string             PluginSettingsPath = "user://logger_settings.cfg";
-	private static FileSystemWatcher? _fileWatcher;
-	private static bool               _settingsChanged;
+	[GeneratedRegex(@"\[/?(?:color|hint)(?:=[^\]]+)?\]")]
+	private static partial Regex BbCodeRegex();
+
+	private const  string         PluginSettingsPath = "user://logger_settings.cfg";
+	private static LogFileWriter? _fileWriter;
+	private static DateTime       _lastSettingsCheck = DateTime.MinValue;
+	private static DateTime       _lastSettingsWrite = DateTime.MinValue;
+	private static bool           _checkInProgress;
 
 	static Logger()
 	{
 		LoadSettings();
 		SaveSettings();
-		SetupFileWatcher();
+		InitializeFileWriter();
+		_lastSettingsWrite = GetSettingsFileTime();
 	}
 
 	public static LogLevel CurrentLevel       { get; set; } = LogLevel.Info;
 	public static bool     IncludeStackTraces { get; set; }
 	public static int      StackTraceDepth    { get; set; } = 3;
+	public static bool     LogToFile          { get; set; } = true;
+
+	private static void InitializeFileWriter()
+	{
+		try
+		{
+			_fileWriter = new LogFileWriter();
+		}
+		catch (Exception ex)
+		{
+			GD.PrintErr($"Failed to initialize file writer: {ex.Message}");
+		}
+	}
+
+	private static DateTime GetSettingsFileTime()
+	{
+		try
+		{
+			var filePath = ProjectSettings.GlobalizePath(PluginSettingsPath);
+			if (File.Exists(filePath))
+				return File.GetLastWriteTimeUtc(filePath);
+		}
+		catch
+		{
+		}
+
+		return DateTime.MinValue;
+	}
 
 	public static void Error(string message,
 		[CallerMemberName] string   memberName = "",
@@ -99,8 +134,14 @@ public static class Logger
 		if (IncludeStackTraces)
 			stackTrace = GetStackTrace(skipFrames);
 
-		GD.PrintRich(coloredMessage + stackTrace);
+		var fullMessage = coloredMessage + stackTrace;
+		GD.PrintRich(fullMessage);
+
+		if (LogToFile)
+			_fileWriter?.Write(StripBbCode(fullMessage));
 	}
+
+	private static string StripBbCode(string text) => BbCodeRegex().Replace(text, "");
 
 	private static string GetCallerInfo(string memberName, string filePath, int lineNumber)
 	{
@@ -172,41 +213,20 @@ public static class Logger
 		Log(level, $"{context}: {objString}", memberName, filePath, lineNumber, skipFrames);
 	}
 
-	private static void SetupFileWatcher()
-	{
-		try
-		{
-			var filePath = ProjectSettings.GlobalizePath(PluginSettingsPath);
-			if (!File.Exists(filePath))
-				throw new FileNotFoundException($"Settings file not found: {filePath}");
-
-			var directory = Path.GetDirectoryName(filePath) ?? throw new InvalidOperationException("Invalid directory path");
-			var fileName = Path.GetFileName(filePath);
-
-			_fileWatcher = new FileSystemWatcher(directory)
-			{
-				Filter = fileName,
-				NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
-				IncludeSubdirectories = false,
-				EnableRaisingEvents = true
-			};
-			_fileWatcher.Changed += OnFileChanged;
-			_fileWatcher.Created += OnFileChanged;
-			_fileWatcher.Renamed += OnFileChanged;
-		}
-		catch (Exception ex)
-		{
-			InternalInfo($"File watcher setup failed: {ex.Message}");
-		}
-	}
-
-	private static void OnFileChanged(object sender, FileSystemEventArgs e) => _settingsChanged = true;
-
 	private static void CheckAndReloadSettings()
 	{
-		if (!_settingsChanged) return;
-		_settingsChanged = false;
-		LoadSettings();
+		var now = DateTime.UtcNow;
+		if ((now - _lastSettingsCheck).TotalSeconds < 1.0)
+			return;
+
+		_lastSettingsCheck = now;
+		var currentWriteTime = GetSettingsFileTime();
+
+		if (currentWriteTime > _lastSettingsWrite)
+		{
+			_lastSettingsWrite = currentWriteTime;
+			LoadSettings();
+		}
 	}
 
 	public static void SaveSettings()
@@ -215,6 +235,7 @@ public static class Logger
 		config.SetValue("Logger", "LogLevel", (int)CurrentLevel);
 		config.SetValue("Logger", "IncludeStackTraces", IncludeStackTraces);
 		config.SetValue("Logger", "StackTraceDepth", StackTraceDepth);
+		config.SetValue("Logger", "LogToFile", LogToFile);
 
 		var error = config.Save(PluginSettingsPath);
 		if (error != Godot.Error.Ok)
@@ -247,6 +268,12 @@ public static class Logger
 		{
 			var stackTraceDepth = (int)config.GetValue("Logger", "StackTraceDepth");
 			StackTraceDepth = stackTraceDepth;
+		}
+
+		if (config.HasSectionKey("Logger", "LogToFile"))
+		{
+			var logToFile = (bool)config.GetValue("Logger", "LogToFile");
+			LogToFile = logToFile;
 		}
 	}
 }
