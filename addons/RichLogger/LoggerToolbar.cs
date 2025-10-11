@@ -6,6 +6,8 @@ public partial class LoggerToolbar : HBoxContainer
     private OptionButton _logLevelDropdown = null!;
     private CheckBox _stackTraceToggle = null!;
     private SpinBox _stackDepthSpinner = null!;
+    private CheckBox _logToFileToggle = null!;
+    private Button _openLogsButton = null!;
     private Button _testLogButton = null!;
 
     private string _pluginSettingsPath = "user://logger_settings.cfg";
@@ -60,6 +62,20 @@ public partial class LoggerToolbar : HBoxContainer
         var separator2 = new VSeparator();
         AddChild(separator2);
 
+        _logToFileToggle = new CheckBox { Text = "Log to File" };
+        _logToFileToggle.TooltipText = "Enable logging to file (user://logs/)";
+        _logToFileToggle.Toggled += OnLogToFileToggled;
+        AddChild(_logToFileToggle);
+
+        var separator3 = new VSeparator();
+        AddChild(separator3);
+
+        _openLogsButton = new Button();
+        _openLogsButton.Text = "Open Logs";
+        _openLogsButton.TooltipText = "Open logs directory";
+        _openLogsButton.Pressed += OnOpenLogsPressed;
+        AddChild(_openLogsButton);
+
         _testLogButton = new Button();
         _testLogButton.Text = "Test Log";
         _testLogButton.TooltipText = "Generate test logs at all levels";
@@ -88,6 +104,19 @@ public partial class LoggerToolbar : HBoxContainer
         Logger.SaveSettings();
     }
 
+    private static void OnLogToFileToggled(bool toggled)
+    {
+        Logger.LogToFile = toggled;
+        Logger.InternalInfo($"Log to file {(toggled ? "enabled" : "disabled")}");
+        Logger.SaveSettings();
+    }
+
+    private static void OnOpenLogsPressed()
+    {
+        var logsPath = ProjectSettings.GlobalizePath("user://logs/");
+        OS.ShellOpen(logsPath);
+    }
+
     private static void OnTestLogPressed()
     {
         Logger.Error("Test ERROR message");
@@ -105,5 +134,6 @@ public partial class LoggerToolbar : HBoxContainer
         _logLevelDropdown.Selected = (int)Logger.CurrentLevel;
         _stackTraceToggle.ButtonPressed = Logger.IncludeStackTraces;
         _stackDepthSpinner.Value = Logger.StackTraceDepth;
+        _logToFileToggle.ButtonPressed = Logger.LogToFile;
     }
 }
