@@ -13,9 +13,9 @@ public class LogFileWriter : IDisposable
 
 	private const int FlushThreshold = 10;
 
-	public int MaxLogFiles { get; set; } = 10;
+	public int MaxLogFiles { get; set; } = 50;
 
-	public LogFileWriter()
+	public LogFileWriter(long processId)
 	{
 		_logDirectory = ProjectSettings.GlobalizePath("user://logs/");
 		Directory.CreateDirectory(_logDirectory);
@@ -24,7 +24,7 @@ public class LogFileWriter : IDisposable
 
 		var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
 		var context = Engine.IsEditorHint() ? "editor" : "game";
-		_logFilePath = Path.Combine(_logDirectory, $"logger_{timestamp}_{context}.log");
+		_logFilePath = Path.Combine(_logDirectory, $"logger_{timestamp}_{context}_pid{processId}.log");
 
 		_writer = new StreamWriter(_logFilePath, true) { AutoFlush = false };
 	}

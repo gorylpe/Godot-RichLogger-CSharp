@@ -25,6 +25,7 @@ public static partial class Logger
 	private static DateTime       _lastSettingsCheck = DateTime.MinValue;
 	private static DateTime       _lastSettingsWrite = DateTime.MinValue;
 	private static bool           _checkInProgress;
+	private static readonly long  _processId = OS.GetProcessId();
 
 	static Logger()
 	{
@@ -38,12 +39,13 @@ public static partial class Logger
 	public static bool     IncludeStackTraces { get; set; }
 	public static int      StackTraceDepth    { get; set; } = 3;
 	public static bool     LogToFile          { get; set; } = true;
+	public static long     ProcessId          => _processId;
 
 	private static void InitializeFileWriter()
 	{
 		try
 		{
-			_fileWriter = new LogFileWriter();
+			_fileWriter = new LogFileWriter(_processId);
 		}
 		catch (Exception ex)
 		{
@@ -159,7 +161,9 @@ public static partial class Logger
 		var hoverTooltip = $"[hint={callerInfo}]";
 		var hoverClose = "[/hint]";
 
-		return $"[color=#AAAAAA][{timestamp}][/color] {levelColor}{hoverTooltip}[{levelName}]{hoverClose}{resetColor} {message}";
+		var instancePrefix = $"[color=#CCCCCC][PID:{_processId}][/color] ";
+
+		return $"{instancePrefix}[color=#AAAAAA][{timestamp}][/color] {levelColor}{hoverTooltip}[{levelName}]{hoverClose}{resetColor} {message}";
 	}
 
 	private static string GetColorForLevel(LogLevel level)
