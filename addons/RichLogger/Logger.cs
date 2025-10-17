@@ -154,7 +154,7 @@ public static partial class Logger
 
 	private static string GetColoredMessage(LogLevel level, string timestamp, string message, string callerInfo)
 	{
-		var levelName = level.ToString().ToUpper();
+		var levelName = level.ToString().ToUpper().PadLeft(7);
 		var levelColor = GetColorForLevel(level);
 		var resetColor = "[color=#FFFFFF]";
 
