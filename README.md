@@ -18,6 +18,7 @@ A feature-rich logging utility addon for Godot 4.x C# projects that enhances the
 2. Copy the `addons/RichLogger` folder to your Godot project's `addons` folder
 3. Compile project
 4. Enable the plugin in Godot via Project > Project Settings > Plugins
+5. (Recommended in Godot 4.5+) Add `global using Logger = Relikta.addons.RichLogger.Logger;` somewhere in your project. 
 
 ## Usage
 ### Basic Logging
