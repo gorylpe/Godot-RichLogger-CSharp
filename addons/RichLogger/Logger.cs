@@ -20,12 +20,11 @@ public static partial class Logger
 	[GeneratedRegex(@"\[/?(?:color|hint)(?:=[^\]]+)?\]")]
 	private static partial Regex BbCodeRegex();
 
-	private const  string         PluginSettingsPath = "user://logger_settings.cfg";
-	private static LogFileWriter? _fileWriter;
-	private static DateTime       _lastSettingsCheck = DateTime.MinValue;
-	private static DateTime       _lastSettingsWrite = DateTime.MinValue;
-	private static bool           _checkInProgress;
-	private static readonly long  _processId = OS.GetProcessId();
+	private const           string         PluginSettingsPath = "user://logger_settings.cfg";
+	private static          LogFileWriter? _fileWriter;
+	private static          DateTime       _lastSettingsCheck = DateTime.MinValue;
+	private static          DateTime       _lastSettingsWrite;
+	private static readonly long           ProcessId = OS.GetProcessId();
 
 	static Logger()
 	{
@@ -39,13 +38,12 @@ public static partial class Logger
 	public static bool     IncludeStackTraces { get; set; }
 	public static int      StackTraceDepth    { get; set; } = 3;
 	public static bool     LogToFile          { get; set; } = true;
-	public static long     ProcessId          => _processId;
 
 	private static void InitializeFileWriter()
 	{
 		try
 		{
-			_fileWriter = new LogFileWriter(_processId);
+			_fileWriter = new LogFileWriter(ProcessId);
 		}
 		catch (Exception ex)
 		{
@@ -63,6 +61,7 @@ public static partial class Logger
 		}
 		catch
 		{
+			// Don't do anything
 		}
 
 		return DateTime.MinValue;
@@ -161,7 +160,7 @@ public static partial class Logger
 		var hoverTooltip = $"[hint={callerInfo}]";
 		var hoverClose = "[/hint]";
 
-		var instancePrefix = $"[color=#CCCCCC][PID:{_processId}][/color] ";
+		var instancePrefix = $"[color=#CCCCCC][PID:{ProcessId}][/color] ";
 
 		return $"{instancePrefix}[color=#AAAAAA][{timestamp}][/color] {levelColor}{hoverTooltip}[{levelName}]{hoverClose}{resetColor} {message}";
 	}
