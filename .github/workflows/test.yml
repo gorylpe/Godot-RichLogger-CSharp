@@ -55,18 +55,19 @@ jobs:
 
       - name: Download Godot ${{ matrix.godot-version }} Mono
         run: |
-          DIRNAME="Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64"
-          EXE="${GODOT_CACHE}/${DIRNAME}/Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64"
+          set -euo pipefail
+          EXE="${GODOT_CACHE}/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64/Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64"
           if [ -f "${EXE}" ]; then
             echo "Godot ${GODOT_VERSION} already cached, skipping download"
-          else
-            URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${DIRNAME}.zip"
-            mkdir -p "${GODOT_CACHE}"
-            wget -q "$URL" -O /tmp/godot.zip
-            unzip -q /tmp/godot.zip -d "${GODOT_CACHE}"
-            chmod +x "${EXE}"
-            rm /tmp/godot.zip
+            exit 0
           fi
+          mkdir -p "${GODOT_CACHE}"
+          URL="https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&slug=mono_linux_x86_64.zip&platform=linux.64"
+          wget --tries=3 --timeout=30 --retry-connrefused -q "$URL" -O /tmp/godot.zip
+          unzip -tq /tmp/godot.zip >/dev/null
+          unzip -q /tmp/godot.zip -d "${GODOT_CACHE}"
+          chmod +x "${EXE}"
+          rm /tmp/godot.zip
 
       - name: Patch .csproj SDK version
         run: |
@@ -87,13 +88,22 @@ jobs:
 
       - name: Import project
         run: |
+          set -euo pipefail
           EXE="${GODOT_CACHE}/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64/Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64"
-          "${EXE}" --headless --import --quit 2>&1 || true
+          "${EXE}" --headless --import --quit
 
       - name: Build C# solutions
         run: |
+          set -uo pipefail
           EXE="${GODOT_CACHE}/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64/Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64"
-          "${EXE}" --headless --build-solutions --quit 2>&1 || true
+          OUTPUT=$("${EXE}" --headless --build-solutions --quit 2>&1)
+          STATUS=$?
+          echo "$OUTPUT"
+          if [ $STATUS -ne 0 ] || echo "$OUTPUT" | grep -qiE 'Build FAILED|error CS[0-9]+|: error '; then
+            echo "FAIL: C# build failed for Godot ${GODOT_VERSION}"
+            exit 1
+          fi
+          echo "PASS: C# build succeeded"
 
       - name: Run scene and check output
         run: |
