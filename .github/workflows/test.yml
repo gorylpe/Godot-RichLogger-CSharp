@@ -92,18 +92,8 @@ jobs:
           EXE="${GODOT_CACHE}/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64/Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64"
           "${EXE}" --headless --import --quit
 
-      - name: Build C# solutions
-        run: |
-          set -uo pipefail
-          EXE="${GODOT_CACHE}/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64/Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64"
-          OUTPUT=$("${EXE}" --headless --build-solutions --quit 2>&1)
-          STATUS=$?
-          echo "$OUTPUT"
-          if [ $STATUS -ne 0 ] || echo "$OUTPUT" | grep -qiE 'Build FAILED|error CS[0-9]+|: error '; then
-            echo "FAIL: C# build failed for Godot ${GODOT_VERSION}"
-            exit 1
-          fi
-          echo "PASS: C# build succeeded"
+      - name: Build C# solution
+        run: dotnet build RichLogger.sln -c Debug
 
       - name: Run scene and check output
         run: |
