@@ -12,12 +12,16 @@ config_version=5
 
 config/name="RichLogger"
 run/main_scene="uid://b86kp7lmgt1kr"
-config/features=PackedStringArray("4.6", "C#", "Forward Plus")
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
 [dotnet]
 
 project/assembly_name="RichLogger"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/RichLogger/plugin.cfg")
 
 [physics]
 

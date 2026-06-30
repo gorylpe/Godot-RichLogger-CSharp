@@ -116,3 +116,15 @@ jobs:
             echo "FAIL: pattern 'INFO.*Test' not found"
             exit 1
           fi
+
+      - name: Open editor and check plugin attaches
+        run: |
+          EXE="${GODOT_CACHE}/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64/Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64"
+          OUTPUT=$(timeout 90s "${EXE}" --headless --editor --path . res://scene.tscn 2>&1) || true
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q '\[SelfTest\] PASS'; then
+            echo "PASS: editor plugin attaches on Godot ${GODOT_VERSION}"
+          else
+            echo "FAIL: editor plugin broken on Godot ${GODOT_VERSION}"
+            exit 1
+          fi
