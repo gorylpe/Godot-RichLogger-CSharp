@@ -1,41 +1,33 @@
 #if TOOLS
+using System;
 using Godot;
+namespace RichLogger;
 
 [Tool]
 public partial class LoggerToolbarPlugin : EditorPlugin
 {
 	private LoggerToolbar? _toolbar;
 
+	private string PluginPath => GetScript().As<CSharpScript>().ResourcePath.GetBaseDir();
+    
+	public override void _EnablePlugin()
+	{
+		AddAutoloadSingleton("RichLogger", $"{PluginPath}/LoggerAutoload.cs");
+		base._EnablePlugin();
+	}
+    
+	public override void _DisablePlugin()
+	{
+		RemoveAutoloadSingleton("RichLogger");
+		base._DisablePlugin();
+	}
+	
 	public override void _EnterTree()
 	{
 		_toolbar = new LoggerToolbar();
 
-#if GODOT4_6_OR_GREATER
-// ┠╴Output
-// ┃  ┠╴@Timer@7423
-// ┃  ┖╴@HBoxContainer@7424
-// ┃     ┠╴@VBoxContainer@7425
-// ┃     ┃  ┠╴@RichTextLabel@7428
-// ┃     ┃  ┃  ┠╴@VScrollBar@7426
-// ┃     ┃  ┃  ┖╴@Timer@7427
-// ┃     ┃  ┖╴@LineEdit@7429
-		var outputHBoxContainer = GetParent().FindChild("Output", owned: false).GetChildren()[1];
-#else
-// ┖╴@EditorLog@7343
-//     ┠╴@Timer@7325
-//     ┠╴@VBoxContainer@7326
-//     ┃  ┠╴@RichTextLabel@7328
-//     ┃  ┃  ┖╴@VScrollBar@7327
-//     ┃  ┖╴@LineEdit@7329
-		var outputHBoxContainer = GetParent().FindChild("*EditorLog*", owned: false);
-#endif
-		if (outputHBoxContainer == null)
-		{
-			GD.Print("[CSharpRichLogger] Could not find Output window");
-			return;
-		}
-		
-		var vbLeft = FindOutputPanelVBoxLeft(outputHBoxContainer);
+		var outputPanel = FindOutputPanelRoot(out bool foundOutputPanelRoot);
+		var vbLeft = FindOutputPanelVBoxLeft(outputPanel, requireLineEdit: !foundOutputPanelRoot);
 		if (vbLeft == null)
 		{
 			GD.PrintErr("[CSharpRichLogger] Could not find vb_left container in EditorLog!");
@@ -54,28 +46,77 @@ public partial class LoggerToolbarPlugin : EditorPlugin
 	/// </summary>
 	/// <param name="editorLog"></param>
 	/// <returns></returns>
-	private VBoxContainer? FindOutputPanelVBoxLeft(Node editorLog)
+	private VBoxContainer? FindOutputPanelVBoxLeft(Node editorLog, bool requireLineEdit)
 	{
-		// The structure is: EditorLog (HBoxContainer) -> VBoxContainer (vb_left)
+		if (editorLog is VBoxContainer vbox && IsOutputPanelVBoxLeft(vbox, requireLineEdit))
+			return vbox;
+
 		foreach (Node child in editorLog.GetChildren())
 		{
-			if (child is VBoxContainer vbox)
-			{
-				// Check if this VBoxContainer has the log and search box
-				bool hasRichTextLabel = false;
-				bool hasLineEdit = false;
+			var found = FindOutputPanelVBoxLeft(child, requireLineEdit);
+			if (found != null)
+				return found;
+		}
 
-				foreach (Node grandchild in vbox.GetChildren())
-				{
-					if (grandchild is RichTextLabel) hasRichTextLabel = true;
-					if (grandchild is LineEdit lineEdit && lineEdit.PlaceholderText.Contains("Filter")) hasLineEdit = true;
-				}
+		return null;
+	}
 
-				if (hasRichTextLabel && hasLineEdit)
-				{
-					return vbox;
-				}
-			}
+	private Node FindOutputPanelRoot(out bool foundOutputPanelRoot)
+	{
+		var parent = GetParent();
+		var output = parent.FindChild("Output", recursive: true, owned: false);
+		if (output != null)
+		{
+			foundOutputPanelRoot = true;
+			return output;
+		}
+
+		var editorLog = parent.FindChild("*EditorLog*", recursive: true, owned: false);
+		if (editorLog != null)
+		{
+			foundOutputPanelRoot = true;
+			return editorLog;
+		}
+
+		foundOutputPanelRoot = false;
+		return parent;
+	}
+
+	private bool IsOutputPanelVBoxLeft(VBoxContainer vbox, bool requireLineEdit)
+	{
+		if (!HasDescendant<RichTextLabel>(vbox))
+			return false;
+
+		if (!requireLineEdit)
+			return true;
+
+		var filterLineEdit = FindDescendant<LineEdit>(vbox, lineEdit =>
+			lineEdit.PlaceholderText.Contains("Filter", StringComparison.OrdinalIgnoreCase) ||
+			lineEdit.Name.ToString().Contains("Filter", StringComparison.OrdinalIgnoreCase));
+		if (filterLineEdit != null)
+			return true;
+
+		// Godot editor internals move between minor versions. The Output panel's
+		// log VBox is still the one containing the RichTextLabel even if the
+		// filter LineEdit moves into a nested toolbar/control.
+		return FindDescendant<LineEdit>(vbox) != null;
+	}
+
+	private bool HasDescendant<T>(Node node) where T : Node
+	{
+		return FindDescendant<T>(node) != null;
+	}
+
+	private T? FindDescendant<T>(Node node, Func<T, bool>? predicate = null) where T : Node
+	{
+		foreach (Node child in node.GetChildren())
+		{
+			if (child is T typedChild && (predicate == null || predicate(typedChild)))
+				return typedChild;
+
+			var found = FindDescendant(child, predicate);
+			if (found != null)
+				return found;
 		}
 
 		return null;
@@ -87,7 +128,7 @@ public partial class LoggerToolbarPlugin : EditorPlugin
 			return;
 
 		var parent = _toolbar.GetParent() as VBoxContainer;
-		parent!.RemoveChild(_toolbar);
+		parent?.RemoveChild(_toolbar);
 
 		_toolbar.QueueFree();
 		_toolbar = null;

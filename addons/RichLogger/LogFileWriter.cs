@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.IO;
 using System.Linq;
+namespace RichLogger;
 
 public class LogFileWriter : IDisposable
 {

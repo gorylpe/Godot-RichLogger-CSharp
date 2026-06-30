@@ -1,4 +1,5 @@
 using Godot;
+namespace RichLogger;
 
 [Tool]
 public partial class LoggerToolbar : HBoxContainer

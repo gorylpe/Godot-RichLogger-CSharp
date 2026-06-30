@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 // ReSharper disable ExplicitCallerInfoArgument
+namespace RichLogger;
 
 public class ExceptionWithLoggerPrintErr : Exception
 {
