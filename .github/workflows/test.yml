@@ -107,10 +107,22 @@ jobs:
             exit 1
           fi
 
+      - name: Run GDScript autoload test
+        run: |
+          EXE="${GODOT_CACHE}/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64/Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64"
+          OUTPUT=$(timeout 30s "${EXE}" --headless --path . res://GDScriptAutoloadTest.tscn 2>&1) || true
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q '\[GDScriptAutoload\] PASS'; then
+            echo "PASS: GDScript reaches RichLogger autoload on Godot ${GODOT_VERSION}"
+          else
+            echo "FAIL: GDScript autoload test failed on Godot ${GODOT_VERSION}"
+            exit 1
+          fi
+
       - name: Open editor and check plugin attaches
         run: |
           EXE="${GODOT_CACHE}/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64/Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64"
-          OUTPUT=$(timeout 90s "${EXE}" --headless --editor --path . res://scene.tscn 2>&1) || true
+          OUTPUT=$(timeout 120s "${EXE}" --headless --editor --path . res://scene.tscn 2>&1) || true
           echo "$OUTPUT"
           if echo "$OUTPUT" | grep -q '\[SelfTest\] PASS'; then
             echo "PASS: editor plugin attaches on Godot ${GODOT_VERSION}"

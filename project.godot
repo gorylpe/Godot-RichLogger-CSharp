@@ -19,6 +19,10 @@ config/icon="res://icon.svg"
 
 project/assembly_name="RichLogger"
 
+[autoload]
+
+RichLogger="*res://addons/RichLogger/LoggerAutoload.cs"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/RichLogger/plugin.cfg")
