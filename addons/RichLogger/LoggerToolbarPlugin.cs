@@ -42,6 +42,7 @@ public partial class LoggerToolbarPlugin : EditorPlugin
 			return;
 		}
 
+		_toolbar.Name = "RichLoggerToolbar";
 		_toolbar.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		vbLeft.AddChild(_toolbar);
 	}
