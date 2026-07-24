@@ -1,0 +1,31 @@
+name: Telegram Notify
+description: Send a Telegram message via the Bot API. Fails if the secrets are not configured.
+
+inputs:
+  bot-token:
+    description: Telegram bot token (pass secrets.TELEGRAM_BOT_TOKEN)
+    required: true
+  chat-id:
+    description: Telegram chat ID (pass secrets.TELEGRAM_CHAT_ID)
+    required: true
+  message:
+    description: Message text to send
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Send Telegram message
+      shell: bash
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ inputs.bot-token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.chat-id }}
+        TEXT: ${{ inputs.message }}
+      run: |
+        set -euo pipefail
+        [ -n "$TELEGRAM_BOT_TOKEN" ] || { echo "ERROR: TELEGRAM_BOT_TOKEN secret is not set"; exit 1; }
+        [ -n "$TELEGRAM_CHAT_ID" ] || { echo "ERROR: TELEGRAM_CHAT_ID secret is not set"; exit 1; }
+        curl -s --fail -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+          --data-urlencode chat_id="${TELEGRAM_CHAT_ID}" \
+          --data-urlencode text="${TEXT}" > /dev/null
+        echo "Telegram notification sent."

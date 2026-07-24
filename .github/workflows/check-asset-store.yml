@@ -1,0 +1,77 @@
+name: Check Asset Store
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 5 * * *'  # Daily 05:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check-store:
+    name: Verify Asset Store has latest version
+    runs-on: [self-hosted, linux, godot]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compare store version with plugin.cfg
+        run: |
+          set -euo pipefail
+          PLUGIN_VERSION=$(grep -oP '^version="\K[0-9]+\.[0-9]+\.[0-9]+(?=")' addons/RichLogger/plugin.cfg)
+
+          # Store returns an empty response to UA-less requests
+          HTML=$(curl -s --fail -L -A "Mozilla/5.0 (RichLogger CI)" \
+            "https://store.godotengine.org/asset/gorylpe/godot-richlogger-c/")
+
+          # Latest version renders first as data-version="Godot RichLogger C# 1.0.2";
+          # 3-part semver regex skips engine versions (4.3/4.7) in the compat list
+          STORE_VERSION=$(echo "$HTML" \
+            | grep -oP 'data-version="[^"]*?\K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+
+          if [ -z "$STORE_VERSION" ]; then
+            echo "ERROR: could not extract version from store page (layout changed?)"
+            exit 1
+          fi
+
+          echo "Asset Store version : $STORE_VERSION"
+          echo "plugin.cfg version  : $PLUGIN_VERSION"
+
+          if [ "$STORE_VERSION" != "$PLUGIN_VERSION" ]; then
+            echo "ERROR: Asset Store is out of date!"
+            echo "Run the Release workflow, then upload the zip at:"
+            echo "https://store.godotengine.org/asset/gorylpe/godot-richlogger-c/"
+            exit 1
+          fi
+
+          echo "OK: Asset Store is up to date."
+
+  check-file-sync:
+    name: Verify addon LICENSE/README match root
+    runs-on: [self-hosted, linux, godot]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Diff addon copies against root files
+        run: |
+          git diff --no-index --exit-code LICENSE addons/RichLogger/LICENSE \
+            || { echo "ERROR: addons/RichLogger/LICENSE differs from LICENSE. Run: cp LICENSE addons/RichLogger/LICENSE"; exit 1; }
+          git diff --no-index --exit-code README.md addons/RichLogger/README.md \
+            || { echo "ERROR: addons/RichLogger/README.md differs from README.md. Run: cp README.md addons/RichLogger/README.md"; exit 1; }
+          echo "OK: addon LICENSE and README are in sync."
+
+  notify:
+    name: Telegram notification on failure
+    runs-on: [self-hosted, linux, godot]
+    needs: [check-store, check-file-sync]
+    if: failure()
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/telegram-notify
+        with:
+          bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message: |
+            ❌ RichLogger: Check Asset Store failed
+            check-store: ${{ needs.check-store.result }}
+            check-file-sync: ${{ needs.check-file-sync.result }}
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
