@@ -4,3 +4,6 @@
 
 # IDE
 .idea/
+
+# Locally built release zips (CI builds these for releases)
+richlogger*.zip

@@ -5,27 +5,45 @@ on:
     branches: [main]
   schedule:
     - cron: '0 5 * * *'  # Daily 05:00 UTC
+  workflow_dispatch:
 
 jobs:
   check:
-    name: Verify Asset Library points to latest main commit
+    name: Verify Asset Library has latest version
     runs-on: [self-hosted, linux, godot]
     steps:
       - uses: actions/checkout@v6
 
-      - name: Check Asset Library matches HEAD
+      - name: Compare Asset Library version with plugin.cfg
         run: |
+          set -euo pipefail
+          PLUGIN_VERSION=$(grep -oP '^version="\K[0-9]+\.[0-9]+\.[0-9]+(?=")' addons/RichLogger/plugin.cfg)
           RESPONSE=$(curl -s --fail "https://godotengine.org/asset-library/api/asset/4023")
-          ASSET_COMMIT=$(echo "$RESPONSE" | jq -r '.download_commit')
-          HEAD_COMMIT=$(git rev-parse HEAD)
+          ASSET_VERSION=$(echo "$RESPONSE" | jq -r '.version_string')
 
-          echo "Asset Library commit : $ASSET_COMMIT"
-          echo "HEAD commit          : $HEAD_COMMIT"
+          echo "Asset Library version : $ASSET_VERSION"
+          echo "plugin.cfg version    : $PLUGIN_VERSION"
 
-          if [ "$ASSET_COMMIT" != "$HEAD_COMMIT" ]; then
+          if [ "$ASSET_VERSION" != "$PLUGIN_VERSION" ]; then
             echo "ERROR: Asset Library is out of date!"
             echo "Please update: https://godotengine.org/asset-library/asset/4023"
             exit 1
           fi
 
           echo "OK: Asset Library is up to date."
+
+  notify:
+    name: Telegram notification on failure
+    runs-on: [self-hosted, linux, godot]
+    needs: [check]
+    if: failure()
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/telegram-notify
+        with:
+          bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message: |
+            ❌ RichLogger: Asset Library is out of date!
+            Please update: https://godotengine.org/asset-library/asset/4023
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

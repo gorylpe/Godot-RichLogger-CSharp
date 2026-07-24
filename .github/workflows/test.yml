@@ -130,3 +130,20 @@ jobs:
             echo "FAIL: editor plugin broken on Godot ${GODOT_VERSION}"
             exit 1
           fi
+
+  notify:
+    name: Telegram notification on failure
+    runs-on: [self-hosted, linux, godot]
+    needs: [prepare, test]
+    if: failure()
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/telegram-notify
+        with:
+          bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message: |
+            ❌ RichLogger: Tests failed (${{ github.event_name }} on ${{ github.ref_name }})
+            prepare: ${{ needs.prepare.result }}
+            test: ${{ needs.test.result }}
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

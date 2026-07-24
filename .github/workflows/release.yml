@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create release with addon zip
+    runs-on: [self-hosted, linux, godot]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read version from plugin.cfg
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION=$(grep -oP '^version="\K[0-9]+\.[0-9]+\.[0-9]+(?=")' addons/RichLogger/plugin.cfg)
+          [ -n "$VERSION" ] || { echo "ERROR: could not parse version from plugin.cfg"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version $VERSION"
+
+      - name: Guard against existing tag
+        run: |
+          set -euo pipefail
+          TAG="v${{ steps.version.outputs.version }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "ERROR: tag $TAG already exists. Bump version in plugin.cfg first."
+            exit 1
+          fi
+
+      - name: Verify addon LICENSE/README match root
+        run: |
+          git diff --no-index --exit-code LICENSE addons/RichLogger/LICENSE
+          git diff --no-index --exit-code README.md addons/RichLogger/README.md
+
+      - name: Build addon zip
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          git archive --format=zip -o "richlogger${VERSION}.zip" HEAD addons/RichLogger
+          unzip -l "richlogger${VERSION}.zip"
+
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "v${VERSION}" "richlogger${VERSION}.zip" \
+            --target "$GITHUB_SHA" \
+            --title "RichLogger ${VERSION}" \
+            --generate-notes
+          echo "Release v${VERSION} created. Upload the zip to the Asset Store:"
+          echo "https://store.godotengine.org/asset/gorylpe/godot-richlogger-c/"
